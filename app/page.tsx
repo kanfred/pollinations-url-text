@@ -117,6 +117,56 @@ export default function Home() {
     localStorage.setItem('pollinations_model', newModel);
   };
 
+  // Check if URL is an image
+  const isImageUrl = (urlString: string): boolean => {
+    const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg', '.bmp', '.ico'];
+    const lower = urlString.toLowerCase();
+    return imageExtensions.some(ext => lower.includes(ext)) || lower.includes('image');
+  };
+
+  // Analyze single image with AI
+  const analyzeSingleImage = async (imageUrl: string, apiKey: string): Promise<string> => {
+    try {
+      const response = await fetch(POLLINATIONS_API, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          model: model,
+          messages: [
+            {
+              role: 'user',
+              content: [
+                {
+                  type: 'text',
+                  text: lang === 'zh-TW'
+                    ? '請詳細描述這張圖片的內容，包括文字、人物、物體、場景等。用繁體中文回答。'
+                    : 'Please describe this image in detail, including any text, people, objects, and scene. Respond in the original language.'
+                },
+                {
+                  type: 'image_url',
+                  image_url: { url: imageUrl }
+                }
+              ]
+            }
+          ],
+          temperature: 0.3
+        }),
+        signal: AbortSignal.timeout(30000)
+      });
+      
+      if (!response.ok) return '';
+      
+      const data = await response.json();
+      const description = data.choices?.[0]?.message?.content || '';
+      return description.trim();
+    } catch {
+      return '';
+    }
+  };
+
   // Extract image URLs from HTML
   const extractImages = (html: string, baseUrl: string): string[] => {
     const imgRegex = /<img[^>]+src=["']([^"']+)["']/gi;
@@ -209,6 +259,21 @@ export default function Home() {
     setImageCount(0);
 
     try {
+      // Case 1: Direct image URL
+      if (isImageUrl(url)) {
+        setImageCount(1);
+        const description = await analyzeSingleImage(url, apiKey);
+        
+        if (description) {
+          setResult(`# 圖片描述 / Image Description\n\n**![Image](${url})**\n\n${description}`);
+        } else {
+          setResult(`# 圖片描述 / Image Description\n\n**![Image](${url})**\n\n(${lang === 'zh-TW' ? '無法分析此圖片' : 'Unable to analyze this image'})`);
+        }
+        setLoading(false);
+        return;
+      }
+
+      // Case 2: Webpage URL
       const fetchResponse = await fetch('/api/convert', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
