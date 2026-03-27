@@ -198,10 +198,10 @@ export default function Home() {
         throw new Error(fetchData.error || 'Failed to fetch URL');
       }
 
-      // Step 2: Extract images if enabled
+      // Step 2: Extract images if enabled (use raw HTML, not extracted text)
       let imageDescriptions = '';
       if (includeImages) {
-        const images = extractImages(fetchData.extractedText, url);
+        const images = extractImages(fetchData.html, url);
         setImageCount(images.length);
         
         if (images.length > 0) {
@@ -209,12 +209,12 @@ export default function Home() {
           for (const img of images) {
             const desc = await describeImage(img, apiKey);
             if (desc) {
-              descriptions.push(`![${desc}](${img})\n*${desc}*`);
+              descriptions.push(`**![Image](${img})**\n${desc}`);
             }
           }
           
           if (descriptions.length > 0) {
-            imageDescriptions = '\n\n## Image Descriptions\n\n' + descriptions.join('\n\n');
+            imageDescriptions = '\n\n## 圖片描述 / Image Descriptions\n\n' + descriptions.join('\n\n---\n\n');
           }
         }
       }
@@ -224,11 +224,13 @@ export default function Home() {
 
       const prompt = `Convert the following webpage content into clean markdown format. Preserve headings, lists, code blocks, and important formatting. Remove navigation elements, ads, and irrelevant content.
 
+IMPORTANT: Include image descriptions if provided below.
+
 Content:
 ${trimmedText}
 ${imageDescriptions}
 
-Respond ONLY with the markdown formatted content.`;
+Respond ONLY with the markdown formatted content. Include all image descriptions at the end if available.`;
 
       const aiResponse = await fetch(POLLINATIONS_API, {
         method: 'POST',

@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { extractTextFromHtml, isValidUrl } from '@/lib/extract';
 
-const POLLINATIONS_API = 'https://gen.pollinations.ai/v1/chat/completions';
-
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
@@ -35,9 +33,10 @@ export async function POST(request: NextRequest) {
     const html = await response.text();
     const extractedText = extractTextFromHtml(html);
 
-    // Return extracted text - client will call Pollinations directly
+    // Return both raw HTML and extracted text - HTML needed for image extraction
     return NextResponse.json({
       success: true,
+      html,
       extractedText,
       originalUrl: url,
       originalLength: extractedText.length
