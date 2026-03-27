@@ -127,9 +127,10 @@ export default function Home() {
     return [...new Set(images)].slice(0, 10); // Max 10 images
   };
 
-  // Describe an image using vision model
+  // Describe an image using the same model user selected (if vision-capable)
   const describeImage = async (imageUrl: string, apiKey: string): Promise<string> => {
     try {
+      // Use the same model user selected
       const response = await fetch(POLLINATIONS_API, {
         method: 'POST',
         headers: {
@@ -137,7 +138,7 @@ export default function Home() {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          model: 'qwen-vision', // Vision model for image description
+          model: model, // Use user's selected model
           messages: [
             {
               role: 'user',
