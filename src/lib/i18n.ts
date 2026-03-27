@@ -42,7 +42,11 @@ export const translations = {
     notLoggedInDesc: 'Click above to login',
     includeImages: 'Include image descriptions',
     extractingImages: 'Extracting images...',
-    imagesExtracted: 'Extracted N images'
+    imagesExtracted: 'Extracted N images',
+    customizePrompt: 'Customize Prompt',
+    hidePrompt: 'Hide Prompt',
+    customPromptLabel: 'Custom Prompt（Use {TEXT} for content）',
+    customPromptHint: 'Use {TEXT} where content should go'
   },
   'zh-TW': {
     title: '網址轉 Markdown',
@@ -87,7 +91,11 @@ export const translations = {
     notLoggedInDesc: '點擊上方按鈕登入',
     includeImages: '包含圖片描述',
     extractingImages: '正在擷取圖片...',
-    imagesExtracted: '已擷取 N 張圖片'
+    imagesExtracted: '已擷取 N 張圖片',
+    customizePrompt: '自定義 Prompt',
+    hidePrompt: '隱藏 Prompt',
+    customPromptLabel: '自定義 Prompt（使用 {TEXT} 代表內容）',
+    customPromptHint: '使用 {TEXT} 表示內容位置'
   }
 } as const;
 

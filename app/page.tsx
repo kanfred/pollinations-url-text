@@ -9,8 +9,25 @@ function getNestedValue(obj: any, path: string): string {
 
 const POLLINATIONS_API = 'https://gen.pollinations.ai/v1/chat/completions';
 
-// OAuth App Key - replace with your own from enter.pollinations.ai
 const APP_KEY = '';
+
+const DEFAULT_PROMPT_EN = `Convert the following webpage content into clean markdown format. Preserve headings, lists, code blocks, and important formatting. Remove navigation elements, ads, and irrelevant content.
+
+IMPORTANT: Include image descriptions if provided below.
+
+Content:
+{TEXT}
+
+Respond ONLY with the markdown formatted content. Include all image descriptions at the end if available.`;
+
+const DEFAULT_PROMPT_ZH = `將以下網頁內容轉換為乾淨的 Markdown 格式。保留標題、列表、代碼區塊和重要格式。移除導航元素、廣告和不相關內容。
+
+重要：如有提供圖片描述，請一併包含在內。
+
+內容：
+{TEXT}
+
+只回應 Markdown 格式內容。如有圖片描述，請附加在最後。`;
 
 export default function Home() {
   const [lang, setLang] = useState<Language>('en');
@@ -25,6 +42,8 @@ export default function Home() {
   const [loggingIn, setLoggingIn] = useState(false);
   const [includeImages, setIncludeImages] = useState(true);
   const [imageCount, setImageCount] = useState(0);
+  const [customPrompt, setCustomPrompt] = useState('');
+  const [showPrompt, setShowPrompt] = useState(false);
 
   const t = (key: string) => getNestedValue(translations[lang], key);
 
@@ -32,6 +51,9 @@ export default function Home() {
     const browserLang = navigator.language;
     if (browserLang.includes('zh')) {
       setLang('zh-TW');
+      setCustomPrompt(DEFAULT_PROMPT_ZH);
+    } else {
+      setCustomPrompt(DEFAULT_PROMPT_EN);
     }
     const savedModel = localStorage.getItem('pollinations_model');
     const savedLang = localStorage.getItem('pollinations_lang');
@@ -83,6 +105,11 @@ export default function Home() {
   const handleLangChange = (newLang: Language) => {
     setLang(newLang);
     localStorage.setItem('pollinations_lang', newLang);
+    if (newLang === 'zh-TW') {
+      setCustomPrompt(DEFAULT_PROMPT_ZH);
+    } else {
+      setCustomPrompt(DEFAULT_PROMPT_EN);
+    }
   };
 
   const handleModelChange = (newModel: string) => {
@@ -98,7 +125,6 @@ export default function Home() {
     
     while ((match = imgRegex.exec(html)) !== null) {
       let src = match[1];
-      // Handle relative URLs
       if (src.startsWith('/')) {
         try {
           const urlObj = new URL(baseUrl);
@@ -114,23 +140,18 @@ export default function Home() {
           continue;
         }
       }
-      // Filter out tracking pixels, icons, etc.
       if (src.includes('pixel') || src.includes('track') || src.includes('icon') || src.includes('logo')) {
-        continue;
-      }
-      if (src.match(/\.(gif|svg|webp)(\?|$)/i)) {
         continue;
       }
       images.push(src);
     }
     
-    return [...new Set(images)].slice(0, 10); // Max 10 images
+    return [...new Set(images)].slice(0, 5);
   };
 
-  // Describe an image using the same model user selected (if vision-capable)
+  // Describe an image using vision model
   const describeImage = async (imageUrl: string, apiKey: string): Promise<string> => {
     try {
-      // Use the same model user selected
       const response = await fetch(POLLINATIONS_API, {
         method: 'POST',
         headers: {
@@ -138,14 +159,16 @@ export default function Home() {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          model: model, // Use user's selected model
+          model: model,
           messages: [
             {
               role: 'user',
               content: [
                 {
                   type: 'text',
-                  text: 'Describe this image briefly in 1-2 sentences. Focus on what\'s important or relevant in the context of a webpage.'
+                  text: lang === 'zh-TW' 
+                    ? '請用繁體中文描述這張圖片。重點說明圖片中的主要內容、文字和含義。請用1-2句話描述。'
+                    : 'Describe this image briefly in 1-2 sentences. Focus on the main content, text visible, and meaning in the image.'
                 },
                 {
                   type: 'image_url',
@@ -155,7 +178,8 @@ export default function Home() {
             }
           ],
           temperature: 0.3
-        })
+        }),
+        signal: AbortSignal.timeout(30000)
       });
       
       if (!response.ok) return '';
@@ -185,7 +209,6 @@ export default function Home() {
     setImageCount(0);
 
     try {
-      // Step 1: Fetch HTML (server-side)
       const fetchResponse = await fetch('/api/convert', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -198,7 +221,7 @@ export default function Home() {
         throw new Error(fetchData.error || 'Failed to fetch URL');
       }
 
-      // Step 2: Extract images if enabled (use raw HTML, not extracted text)
+      // Extract and describe images if enabled
       let imageDescriptions = '';
       if (includeImages) {
         const images = extractImages(fetchData.html, url);
@@ -209,7 +232,7 @@ export default function Home() {
           for (const img of images) {
             const desc = await describeImage(img, apiKey);
             if (desc) {
-              descriptions.push(`**![Image](${img})**\n${desc}`);
+              descriptions.push(`**![${desc}](${img})**\n${desc}`);
             }
           }
           
@@ -219,18 +242,9 @@ export default function Home() {
         }
       }
 
-      // Step 3: Convert to markdown
+      // Build prompt with user content or default
       const trimmedText = fetchData.extractedText.slice(0, 15000);
-
-      const prompt = `Convert the following webpage content into clean markdown format. Preserve headings, lists, code blocks, and important formatting. Remove navigation elements, ads, and irrelevant content.
-
-IMPORTANT: Include image descriptions if provided below.
-
-Content:
-${trimmedText}
-${imageDescriptions}
-
-Respond ONLY with the markdown formatted content. Include all image descriptions at the end if available.`;
+      let prompt = customPrompt.replace('{TEXT}', trimmedText + imageDescriptions);
 
       const aiResponse = await fetch(POLLINATIONS_API, {
         method: 'POST',
@@ -242,7 +256,8 @@ Respond ONLY with the markdown formatted content. Include all image descriptions
           model,
           messages: [{ role: 'user', content: prompt }],
           temperature: 0.3
-        })
+        }),
+        signal: AbortSignal.timeout(60000)
       });
 
       if (!aiResponse.ok) {
@@ -279,7 +294,6 @@ Respond ONLY with the markdown formatted content. Include all image descriptions
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-4xl mx-auto px-4 py-8">
-        {/* Header */}
         <div className="flex justify-between items-center mb-8">
           <div>
             <h1 className="text-3xl font-bold text-gray-900">{t('title')}</h1>
@@ -317,7 +331,6 @@ Respond ONLY with the markdown formatted content. Include all image descriptions
           </div>
         </div>
 
-        {/* Login Status */}
         <div className={`rounded-lg p-4 mb-6 ${apiReady ? 'bg-green-50' : 'bg-yellow-50'}`}>
           <div className="flex items-center gap-2">
             <span className={`px-2 py-1 rounded text-xs ${apiReady ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>
@@ -334,7 +347,6 @@ Respond ONLY with the markdown formatted content. Include all image descriptions
           )}
         </div>
 
-        {/* Input Form */}
         <div className="bg-white rounded-lg shadow-md p-6 mb-6">
           <div className="mb-4">
             <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -379,6 +391,30 @@ Respond ONLY with the markdown formatted content. Include all image descriptions
           </div>
 
           <button
+            onClick={() => setShowPrompt(!showPrompt)}
+            className="text-blue-500 text-sm underline mb-4"
+          >
+            {showPrompt ? '隱藏 Prompt' : '自定義 Prompt'}
+          </button>
+
+          {showPrompt && (
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                {lang === 'zh-TW' ? '自定義 Prompt（使用 {TEXT} 代表內容）' : 'Custom Prompt（Use {TEXT} for content）'}
+              </label>
+              <textarea
+                value={customPrompt}
+                onChange={(e) => setCustomPrompt(e.target.value)}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 font-mono text-sm"
+                rows={8}
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                {lang === 'zh-TW' ? '使用 {TEXT} 表示內容位置' : 'Use {TEXT} where content should go'}
+              </p>
+            </div>
+          )}
+
+          <button
             onClick={handleConvert}
             disabled={loading || !apiReady}
             className="w-full bg-blue-500 text-white py-3 rounded-lg font-medium hover:bg-blue-600 disabled:bg-blue-300 transition"
@@ -393,7 +429,6 @@ Respond ONLY with the markdown formatted content. Include all image descriptions
           )}
         </div>
 
-        {/* BYOK Info */}
         <div className="bg-blue-50 rounded-lg p-4 mb-6">
           <h3 className="font-medium text-blue-900 mb-2">{t('byokTitle')}</h3>
           <ul className="text-sm text-blue-800 space-y-1">
@@ -404,13 +439,11 @@ Respond ONLY with the markdown formatted content. Include all image descriptions
           </ul>
         </div>
 
-        {/* Disclaimer */}
         <div className="text-sm text-gray-500 mb-6">
           <p>{t('disclaimer')}</p>
           <p className="mt-1">{t('supportedFormats')}</p>
         </div>
 
-        {/* Terms Toggle */}
         <button
           onClick={() => setShowTerms(!showTerms)}
           className="text-blue-500 text-sm underline mb-4"
@@ -423,7 +456,6 @@ Respond ONLY with the markdown formatted content. Include all image descriptions
           </div>
         )}
 
-        {/* Result */}
         {result && (
           <div className="bg-white rounded-lg shadow-md p-6">
             <div className="flex justify-between items-center mb-4">
