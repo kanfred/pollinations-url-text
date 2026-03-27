@@ -175,6 +175,12 @@ export default function Home() {
     
     while ((match = imgRegex.exec(html)) !== null) {
       let src = match[1];
+      
+      // Decode HTML entities (&amp; -> &, &lt; -> <, etc.)
+      const textarea = document.createElement('textarea');
+      textarea.innerHTML = src;
+      src = textarea.value;
+      
       if (src.startsWith('/')) {
         try {
           const urlObj = new URL(baseUrl);
