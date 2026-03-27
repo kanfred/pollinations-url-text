@@ -46,7 +46,9 @@ export const translations = {
     customizePrompt: 'Customize Prompt',
     hidePrompt: 'Hide Prompt',
     customPromptLabel: 'Custom Prompt（Use {TEXT} for content）',
-    customPromptHint: 'Use {TEXT} where content should go'
+    customPromptHint: 'Use {TEXT} where content should go',
+    maxTextLength: 'Max text length',
+    maxImages: 'Max images'
   },
   'zh-TW': {
     title: '網址轉 Markdown',
@@ -95,7 +97,9 @@ export const translations = {
     customizePrompt: '自定義 Prompt',
     hidePrompt: '隱藏 Prompt',
     customPromptLabel: '自定義 Prompt（使用 {TEXT} 代表內容）',
-    customPromptHint: '使用 {TEXT} 表示內容位置'
+    customPromptHint: '使用 {TEXT} 表示內容位置',
+    maxTextLength: '最大文字長度',
+    maxImages: '最大圖片數量'
   }
 } as const;
 

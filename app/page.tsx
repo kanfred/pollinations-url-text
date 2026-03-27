@@ -44,6 +44,8 @@ export default function Home() {
   const [imageCount, setImageCount] = useState(0);
   const [customPrompt, setCustomPrompt] = useState('');
   const [showPrompt, setShowPrompt] = useState(false);
+  const [maxTextLength, setMaxTextLength] = useState(10000);
+  const [maxImages, setMaxImages] = useState(3);
 
   const t = (key: string) => getNestedValue(translations[lang], key);
 
@@ -202,7 +204,7 @@ export default function Home() {
       images.push(src);
     }
     
-    return [...new Set(images)].slice(0, 5);
+    return [...new Set(images)].slice(0, maxImages);
   };
 
   // Describe an image using vision model
@@ -314,7 +316,7 @@ export default function Home() {
       }
 
       // Build prompt with user content or default
-      const trimmedText = fetchData.extractedText.slice(0, 15000);
+      const trimmedText = fetchData.extractedText.slice(0, maxTextLength);
       let prompt = customPrompt.replace('{TEXT}', trimmedText + imageDescriptions);
 
       const aiResponse = await fetch(POLLINATIONS_API, {
@@ -459,6 +461,37 @@ export default function Home() {
               />
               <span className="text-sm text-gray-700">{t('includeImages')}</span>
             </label>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4 mb-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                {t('maxTextLength')}: {maxTextLength}
+              </label>
+              <input
+                type="range"
+                min="1000"
+                max="15000"
+                step="1000"
+                value={maxTextLength}
+                onChange={(e) => setMaxTextLength(Number(e.target.value))}
+                className="w-full"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                {t('maxImages')}: {maxImages}
+              </label>
+              <input
+                type="range"
+                min="1"
+                max="10"
+                step="1"
+                value={maxImages}
+                onChange={(e) => setMaxImages(Number(e.target.value))}
+                className="w-full"
+              />
+            </div>
           </div>
 
           <button
