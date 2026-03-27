@@ -6,14 +6,15 @@ Convert any webpage to clean markdown text using AI.
 
 - URL to Markdown conversion
 - Multiple AI models support (Gemini, GPT, Claude, Qwen, Kimi)
-- BYOK: Your API key stays in your browser
+- **OAuth Login**: Login with Pollinations (no manual key entry)
+- **True BYOK**: Your API key stays in your browser
 - i18n: English & Traditional Chinese
 - No database required
 
 ## Architecture
 
 ```
-User Browser → Server (fetch HTML) → Extract Text → Pollinations API → Markdown Output
+User Browser → Server (fetch HTML) → Extract Text → Pollinations API (user's key) → Markdown
                     ↓
             API key never touches server
 ```
@@ -22,7 +23,7 @@ User Browser → Server (fetch HTML) → Extract Text → Pollinations API → M
 
 - Next.js 15 (App Router)
 - TypeScript
-- Tailwind CSS 4
+- Tailwind CSS
 
 ## Getting Started
 
@@ -33,15 +34,20 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000)
 
+## Setup App Key (Optional but Recommended)
+
+For OAuth to show your app name:
+
+1. Go to [enter.pollinations.ai](https://enter.pollinations.ai)
+2. Create New App Key
+3. Copy the `pk_...` key
+4. Paste it in `app/page.tsx` as `const APP_KEY = 'pk_yourkey';`
+
 ## Deploy
 
 [![Deploy with Vercel](https://vercel.com/new/clone?repository-url=https://github.com/kanfred/pollinations-url-text)](https://vercel.com/new/clone?repository-url=https://github.com/kanfred/pollinations-url-text)
 
 Zero configuration required.
-
-## Environment Variables
-
-None required. This is a BYOK (Bring Your Own Key) architecture.
 
 ## Supported Models
 

@@ -9,6 +9,9 @@ function getNestedValue(obj: any, path: string): string {
 
 const POLLINATIONS_API = 'https://gen.pollinations.ai/v1/chat/completions';
 
+// OAuth App Key - user should replace with their own from enter.pollinations.ai
+const APP_KEY = '';
+
 export default function Home() {
   const [lang, setLang] = useState<Language>('en');
   const [url, setUrl] = useState('');
@@ -20,6 +23,7 @@ export default function Home() {
   const [showTerms, setShowTerms] = useState(false);
   const [apiReady, setApiReady] = useState(false);
   const [extractedText, setExtractedText] = useState('');
+  const [loggingIn, setLoggingIn] = useState(false);
 
   const t = (key: string) => getNestedValue(translations[lang], key);
 
@@ -35,6 +39,9 @@ export default function Home() {
     if (savedLang) setLang(savedLang as Language);
     if (savedModel) setModel(savedModel);
     if (savedKey) setApiKey(savedKey);
+    
+    // Check for API key in URL fragment after OAuth redirect
+    handleOAuthCallback();
   }, []);
 
   useEffect(() => {
@@ -46,6 +53,42 @@ export default function Home() {
     }
   }, [apiKey]);
 
+  // Handle OAuth callback
+  const handleOAuthCallback = () => {
+    const hash = window.location.hash;
+    if (hash && hash.includes('api_key=')) {
+      const params = new URLSearchParams(hash.slice(1));
+      const key = params.get('api_key');
+      if (key) {
+        setApiKey(key);
+        localStorage.setItem('pollinations_key', key);
+        // Clean URL
+        window.history.replaceState(null, '', window.location.pathname);
+        setError('');
+      }
+    }
+  };
+
+  // Login with Pollinations OAuth
+  const handleLogin = () => {
+    setLoggingIn(true);
+    const redirectUrl = window.location.origin + window.location.pathname;
+    let authUrl = `https://enter.pollinations.ai/authorize?redirect_url=${encodeURIComponent(redirectUrl)}`;
+    
+    if (APP_KEY) {
+      authUrl += `&app_key=${APP_KEY}`;
+    }
+    
+    window.location.href = authUrl;
+  };
+
+  // Logout / Clear key
+  const handleLogout = () => {
+    setApiKey('');
+    setApiReady(false);
+    localStorage.removeItem('pollinations_key');
+  };
+
   const handleLangChange = (newLang: Language) => {
     setLang(newLang);
     localStorage.setItem('pollinations_lang', newLang);
@@ -56,15 +99,6 @@ export default function Home() {
     localStorage.setItem('pollinations_model', newModel);
   };
 
-  const handleApiKeyChange = (newKey: string) => {
-    setApiKey(newKey);
-    if (newKey) {
-      localStorage.setItem('pollinations_key', newKey);
-    } else {
-      localStorage.removeItem('pollinations_key');
-    }
-  };
-
   const handleConvert = async () => {
     if (!url.trim()) {
       setError(t('invalidUrl'));
@@ -72,7 +106,7 @@ export default function Home() {
     }
 
     if (!apiKey) {
-      setError(lang === 'zh-TW' ? '請輸入 API Key' : 'Please enter your API Key');
+      setError(lang === 'zh-TW' ? '請先登入 Pollinations' : 'Please login to Pollinations first');
       return;
     }
 
@@ -161,9 +195,22 @@ Respond ONLY with the markdown formatted content.`;
             <p className="text-gray-600 mt-1">{t('description')}</p>
           </div>
           <div className="flex gap-2 items-center">
-            <span className={`px-2 py-1 rounded text-xs ${apiReady ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-              {apiReady ? '✓ API Ready' : '✗ No Key'}
-            </span>
+            {apiReady ? (
+              <button
+                onClick={handleLogout}
+                className="px-3 py-1 rounded bg-red-100 text-red-700 text-xs hover:bg-red-200"
+              >
+                {lang === 'zh-TW' ? '登出' : 'Logout'}
+              </button>
+            ) : (
+              <button
+                onClick={handleLogin}
+                disabled={loggingIn}
+                className="px-3 py-1 rounded bg-green-500 text-white text-xs hover:bg-green-600 disabled:bg-green-300"
+              >
+                {loggingIn ? '...' : lang === 'zh-TW' ? '登入 Pollinations' : 'Login with Pollinations'}
+              </button>
+            )}
             <button
               onClick={() => handleLangChange('en')}
               className={`px-3 py-1 rounded ${lang === 'en' ? 'bg-blue-500 text-white' : 'bg-gray-200'}`}
@@ -176,6 +223,21 @@ Respond ONLY with the markdown formatted content.`;
             >
               中文
             </button>
+          </div>
+        </div>
+
+        {/* Login Status */}
+        <div className={`rounded-lg p-4 mb-6 ${apiReady ? 'bg-green-50' : 'bg-yellow-50'}`}>
+          <div className="flex items-center gap-2">
+            <span className={`px-2 py-1 rounded text-xs ${apiReady ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>
+              {apiReady ? '✓ Logged in' : '✗ Not logged in'}
+            </span>
+            <span className="text-sm text-gray-600">
+              {apiReady 
+                ? (lang === 'zh-TW' ? '已連接你的 Pollinations 帳戶' : 'Connected to your Pollinations account')
+                : (lang === 'zh-TW' ? '點擊上方按鈕登入' : 'Click above to login')
+              }
+            </span>
           </div>
         </div>
 
@@ -211,24 +273,6 @@ Respond ONLY with the markdown formatted content.`;
             </select>
           </div>
 
-          <div className="mb-4">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              {t('apiKeyLabel')}
-            </label>
-            <input
-              type="password"
-              value={apiKey}
-              onChange={(e) => handleApiKeyChange(e.target.value)}
-              placeholder="sk_xxxxxxxx"
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-            />
-            <p className="text-xs text-gray-500 mt-1">
-              {lang === 'zh-TW' 
-                ? '去 enter.pollinations.ai 獲取你的 API Key（免費）'
-                : 'Get your free API key at enter.pollinations.ai'}
-            </p>
-          </div>
-
           <button
             onClick={handleConvert}
             disabled={loading || !apiReady}
@@ -251,8 +295,9 @@ Respond ONLY with the markdown formatted content.`;
           </h3>
           <ul className="text-sm text-blue-800 space-y-1">
             <li>• {lang === 'zh-TW' ? '此應用使用 BYOK (自帶 API Key)' : 'This app uses BYOK (Bring Your Own API Key)'}</li>
-            <li>• {lang === 'zh-TW' ? '你的 API Key 只存在你的瀏覽器，不會上傳到伺服器' : 'Your API key stays in your browser, never sent to our server'}</li>
-            <li>• {lang === 'zh-TW' ? '去 enter.pollinations.ai 免費註冊獲取 key' : 'Get a free key at enter.pollinations.ai'}</li>
+            <li>• {lang === 'zh-TW' ? '你的 API Key 只存在你的瀏覽器' : 'Your API key stays only in your browser'}</li>
+            <li>• {lang === 'zh-TW' ? 'Key 透過 OAuth 直接從 Pollinations 獲取' : 'Key obtained via OAuth directly from Pollinations'}</li>
+            <li>• {lang === 'zh-TW' ? '我哋永遠唔會睇到你的 Key' : 'We never see your key'}</li>
           </ul>
         </div>
 
