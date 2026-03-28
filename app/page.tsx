@@ -498,7 +498,7 @@ export default function Home() {
             onClick={() => setShowPrompt(!showPrompt)}
             className="text-blue-500 text-sm underline mb-4"
           >
-            {showPrompt ? '隱藏 Prompt' : '自定義 Prompt'}
+            {showPrompt ? t('hidePrompt') : t('customizePrompt')}
           </button>
 
           {showPrompt && (
